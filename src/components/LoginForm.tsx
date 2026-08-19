@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { login } from '../api/auth'
 import { HttpError } from '../api/http'
-import { setAccessToken } from '../auth/tokenStorage'
+import { setAccessToken, setMustChangePassword } from '../auth/tokenStorage'
 
 type FieldErrors = {
   username?: string
@@ -58,7 +58,8 @@ export default function LoginForm() {
     try {
       const result = await login({ username, password }, controller.signal)
       setAccessToken(result.token)
-      window.location.assign('/dashboard')
+      setMustChangePassword(result.mustChangePassword)
+      window.location.assign(result.mustChangePassword ? '/change-password' : '/dashboard')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return

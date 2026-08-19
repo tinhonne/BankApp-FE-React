@@ -1,9 +1,15 @@
-import { clearAccessToken, getAccessToken } from './tokenStorage'
+import {
+  clearAccessToken,
+  clearMustChangePassword,
+  getAccessToken,
+  getMustChangePassword,
+} from './tokenStorage'
 import type { Role } from '../api/types'
 
 export type Session = {
   username: string
   roles: Role[]
+  mustChangePassword: boolean
   expiresAt: number
 }
 
@@ -77,10 +83,12 @@ export function getSession(): Session | null {
   return {
     username: claims.sub,
     roles,
+    mustChangePassword: getMustChangePassword(),
     expiresAt: claims.exp * 1000,
   }
 }
 
 export function endSession() {
   clearAccessToken()
+  clearMustChangePassword()
 }

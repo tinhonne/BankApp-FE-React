@@ -19,6 +19,14 @@ function isAuthenticationResponse(value: unknown): value is ApiSuccess<Authentic
   )
 }
 
+function isSuccessful(response: unknown): response is ApiSuccess<unknown> {
+  return (
+    typeof response === 'object' &&
+    response !== null &&
+    (response as Partial<ApiSuccess<unknown>>).code === 'SUCCESS'
+  )
+}
+
 export async function login(credentials: LoginRequest, signal?: AbortSignal) {
   const response = await request<unknown>('/auth/token', {
     method: 'POST',
@@ -31,4 +39,16 @@ export async function login(credentials: LoginRequest, signal?: AbortSignal) {
   }
 
   return response.result
+}
+
+export async function logout(token: string, signal?: AbortSignal) {
+  const response = await request<unknown>('/auth/logout', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+    signal,
+  })
+
+  if (!isSuccessful(response)) {
+    throw new HttpError('The server returned an invalid response.', 200)
+  }
 }

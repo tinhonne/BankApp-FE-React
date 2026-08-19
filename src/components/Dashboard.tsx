@@ -33,6 +33,10 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
   const [accounts, setAccounts] = useState<PanelState<PageResponse<Account>>>(initialPanelState)
   const [users, setUsers] = useState<PanelState<User[]>>(initialPanelState)
 
+  const canViewCustomers = session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER')
+  const canViewAccounts = session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER')
+  const canViewUsers = session.roles.includes('ADMIN') || session.roles.includes('MANAGER')
+
   const handleError = useCallback(
     (error: unknown) => {
       if (error instanceof HttpError && error.status === 401) {
@@ -98,13 +102,17 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
 
   useEffect(() => {
     const controller = new AbortController()
-    void loadCustomers(controller.signal)
-    void loadAccounts(controller.signal)
-    if (session.roles.includes('ADMIN') || session.roles.includes('MANAGER')) {
+    if (canViewCustomers) {
+      void loadCustomers(controller.signal)
+    }
+    if (canViewAccounts) {
+      void loadAccounts(controller.signal)
+    }
+    if (canViewUsers) {
       void loadUsers(controller.signal)
     }
     return () => controller.abort()
-  }, [loadAccounts, loadCustomers, loadUsers, session.roles])
+  }, [canViewAccounts, canViewCustomers, canViewUsers, loadAccounts, loadCustomers, loadUsers])
 
   return (
     <main className="dashboard-page">
@@ -123,19 +131,23 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
         </div>
 
         <section className="summary-grid" aria-label="Verified totals">
-          <article className="summary-card"><span>Total customers</span><strong>{customers.data?.totalElements ?? '—'}</strong></article>
-          <article className="summary-card"><span>Total accounts</span><strong>{accounts.data?.totalElements ?? '—'}</strong></article>
-          {(session.roles.includes('ADMIN') || session.roles.includes('MANAGER')) && <article className="summary-card"><span>Total users</span><strong>{users.data?.length ?? '—'}</strong></article>}
+          {canViewCustomers && <article className="summary-card"><span>Total customers</span><strong>{customers.data?.totalElements ?? '—'}</strong></article>}
+          {canViewAccounts && <article className="summary-card"><span>Total accounts</span><strong>{accounts.data?.totalElements ?? '—'}</strong></article>}
+          {canViewUsers && <article className="summary-card"><span>Total users</span><strong>{users.data?.length ?? '—'}</strong></article>}
         </section>
 
         <div className="dashboard-grid">
-          <DataPanel title="Customers" loading={customers.loading} error={customers.error} onRetry={() => void loadCustomers()}>
-            {customers.data && (customers.data.content.length === 0 ? <EmptyState /> : <CustomerTable customers={customers.data.content} />)}
-          </DataPanel>
-          <DataPanel title="Accounts" loading={accounts.loading} error={accounts.error} onRetry={() => void loadAccounts()}>
-            {accounts.data && (accounts.data.content.length === 0 ? <EmptyState /> : <AccountTable accounts={accounts.data.content} />)}
-          </DataPanel>
-          {(session.roles.includes('ADMIN') || session.roles.includes('MANAGER')) && (
+          {canViewCustomers && (
+            <DataPanel title="Customers" loading={customers.loading} error={customers.error} onRetry={() => void loadCustomers()}>
+              {customers.data && (customers.data.content.length === 0 ? <EmptyState /> : <CustomerTable customers={customers.data.content} />)}
+            </DataPanel>
+          )}
+          {canViewAccounts && (
+            <DataPanel title="Accounts" loading={accounts.loading} error={accounts.error} onRetry={() => void loadAccounts()}>
+              {accounts.data && (accounts.data.content.length === 0 ? <EmptyState /> : <AccountTable accounts={accounts.data.content} />)}
+            </DataPanel>
+          )}
+          {canViewUsers && (
             <DataPanel title="Users" loading={users.loading} error={users.error} onRetry={() => void loadUsers()} wide>
               {users.data && (users.data.length === 0 ? <EmptyState /> : <UserTable users={users.data} />)}
             </DataPanel>

@@ -34,3 +34,20 @@ export async function getUsers(signal?: AbortSignal) {
 
   return response.result
 }
+
+export async function changePassword(oldPassword: string, newPassword: string, signal?: AbortSignal) {
+  const response = await request<unknown>('/users/me/password', {
+    method: 'PATCH',
+    authenticated: true,
+    body: JSON.stringify({ oldPassword, newPassword }),
+    signal,
+  })
+
+  if (
+    typeof response !== 'object' ||
+    response === null ||
+    (response as Partial<ApiSuccess<unknown>>).code !== 'SUCCESS'
+  ) {
+    throw new HttpError('The server returned an invalid response.', 200)
+  }
+}
