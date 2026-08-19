@@ -71,6 +71,16 @@ export async function getAccount(id: number, signal?: AbortSignal) {
   return response.result
 }
 
+export async function getAccountByNumber(accountNumber: string, signal?: AbortSignal) {
+  const response = await request<unknown>(`/accounts/number/${accountNumber}`, {
+    authenticated: true,
+    signal,
+  })
+  assertSuccess(response)
+  assertAccount(response)
+  return response.result
+}
+
 export async function createAccount(data: AccountCreateRequest, signal?: AbortSignal) {
   const response = await request<unknown>('/accounts', {
     method: 'POST',

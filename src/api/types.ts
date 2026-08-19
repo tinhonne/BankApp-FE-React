@@ -92,6 +92,26 @@ export type AccountCreateRequest = {
   balance: number
 }
 
+export type TransactionStatus = 'SUCCESS' | 'INSUFFICIENT_BALANCE' | 'SYSTEM_ERROR'
+
+export type Transaction = {
+  id: number | null
+  transactionDate: string | null
+  fromAccountNumber: string | null
+  toAccountNumber: string | null
+  amount: number | null
+  status: TransactionStatus | null
+  content: string | null
+  errorReason: string | null
+}
+
+export type TransferRequest = {
+  fromAccountNumber: string
+  toAccountNumber: string
+  amount: number
+  content?: string
+}
+
 export type User = {
   id: number | null
   username: string | null
@@ -99,4 +119,26 @@ export type User = {
   enabled: boolean
   mustChangePassword: boolean
   roles: Role[]
+}
+
+export type UserDetail = {
+  id: number | null
+  username: string | null
+  name: string | null
+  enabled: boolean
+  mustChangePassword: boolean
+  roles: Role[]
+  permissions: string[]
+}
+
+export type UserCreateRequest = {
+  username: string
+  password: string
+  name: string
+  roles?: Role[]
+}
+
+export type UserUpdateRequest = {
+  name?: string
+  roles?: Role[]
 }

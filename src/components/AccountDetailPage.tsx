@@ -211,6 +211,22 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
               </div>
             </div>
             <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busy !== null}
+                onClick={() => navigate('/transactions/transfer')}
+              >
+                Transfer
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={busy !== null}
+                onClick={() => account.accountNumber && navigate(`/transactions/history/${account.accountNumber}`)}
+              >
+                Transactions
+              </button>
               {canApprove && account.status === 3 && (
                 <button
                   type="button"

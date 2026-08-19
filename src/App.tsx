@@ -11,6 +11,11 @@ import CustomerFormPage from './components/CustomerFormPage'
 import CustomerListPage from './components/CustomerListPage'
 import Dashboard from './components/Dashboard'
 import LoginForm from './components/LoginForm'
+import TransactionHistoryPage from './components/TransactionHistoryPage'
+import TransferPage from './components/TransferPage'
+import UserDetailPage from './components/UserDetailPage'
+import UserFormPage from './components/UserFormPage'
+import UserListPage from './components/UserListPage'
 import { replacePath } from './lib/navigate'
 import { usePathname } from './lib/usePathname'
 import './App.css'
@@ -21,6 +26,14 @@ function canManageCustomers(session: Session | null) {
 
 function canManageAccounts(session: Session | null) {
   return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
+}
+
+function canManageTransactions(session: Session | null) {
+  return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
+}
+
+function canManageUsers(session: Session | null) {
+  return session !== null && (session.roles.includes('MANAGER') || session.roles.includes('ADMIN'))
 }
 
 function App() {
@@ -166,6 +179,87 @@ function App() {
     }
 
     return <AccountListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  const transferRoute = pathname === '/transactions/transfer' || pathname === '/transfer'
+  const transactionHistoryMatch = /^\/transactions\/history\/(\d{13})$/.exec(pathname)
+
+  if (transferRoute || transactionHistoryMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageTransactions(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (transferRoute) {
+      return <TransferPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    return (
+      <TransactionHistoryPage
+        accountNumber={transactionHistoryMatch![1]}
+        session={session}
+        onUnauthorized={returnToLogin}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  const userListRoute = pathname === '/users'
+  const userCreateRoute = pathname === '/users/new'
+  const userEditMatch = /^\/users\/(\d+)\/edit$/.exec(pathname)
+  const userDetailMatch = /^\/users\/(\d+)$/.exec(pathname)
+
+  if (userListRoute || userCreateRoute || userEditMatch || userDetailMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageUsers(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (userCreateRoute) {
+      return (
+        <UserFormPage
+          mode="create"
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (userEditMatch) {
+      return (
+        <UserFormPage
+          mode="edit"
+          id={Number(userEditMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (userDetailMatch) {
+      return (
+        <UserDetailPage
+          id={Number(userDetailMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    return <UserListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
   }
 
   if (session) {

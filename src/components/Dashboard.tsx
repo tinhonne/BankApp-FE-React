@@ -40,6 +40,7 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
   const canViewCustomers = session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER')
   const canViewAccounts = session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER')
   const canViewUsers = session.roles.includes('ADMIN') || session.roles.includes('MANAGER')
+  const canTransfer = session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER')
 
   const handleError = useCallback(
     (error: unknown) => {
@@ -125,7 +126,14 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
       <div className="dashboard-content">
         <div className="dashboard-intro">
           <div><p className="eyebrow">Operations overview</p><h1>Dashboard</h1></div>
-          <p>Verified customer and account information from the banking service.</p>
+          <div className="dashboard-intro-actions">
+            <p>Verified customer and account information from the banking service.</p>
+            {canTransfer && (
+              <button type="button" className="btn btn-primary" onClick={() => navigate('/transfer')}>
+                Transfer funds
+              </button>
+            )}
+          </div>
         </div>
 
         <section className="summary-grid" aria-label="Verified totals">
@@ -158,7 +166,7 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
             </DataPanel>
           )}
           {canViewUsers && (
-            <DataPanel title="Users" loading={users.loading} error={users.error} onRetry={() => void loadUsers()} wide>
+            <DataPanel title="Users" loading={users.loading} error={users.error} onRetry={() => void loadUsers()} wide headerRight={<button type="button" className="link-btn" onClick={() => navigate('/users')}>View all</button>}>
               {users.data && (users.data.length === 0 ? <EmptyState /> : <UserTable users={users.data} />)}
             </DataPanel>
           )}
