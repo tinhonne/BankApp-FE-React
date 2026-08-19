@@ -1,29 +1,29 @@
-import { useCallback, useState } from 'react'
+import { useCallback } from 'react'
 import { logout } from './api/auth'
 import { clearMustChangePassword, getAccessToken } from './auth/tokenStorage'
-import { endSession, getSession } from './auth/session'
+import { endSession, getSession, type Session } from './auth/session'
 import ChangePasswordForm from './components/ChangePasswordForm'
+import CustomerDetailPage from './components/CustomerDetailPage'
+import CustomerFormPage from './components/CustomerFormPage'
+import CustomerListPage from './components/CustomerListPage'
 import Dashboard from './components/Dashboard'
 import LoginForm from './components/LoginForm'
+import { replacePath } from './lib/navigate'
+import { usePathname } from './lib/usePathname'
 import './App.css'
 
-function navigate(path: string) {
-  window.history.replaceState(null, '', path)
-  window.dispatchEvent(new PopStateEvent('popstate'))
+function canManageCustomers(session: Session | null) {
+  return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
 }
 
 function App() {
-  const [, setNavigationKey] = useState(0)
-  const pathname = window.location.pathname
+  const pathname = usePathname()
   const session = getSession()
-
-  const refresh = useCallback(() => setNavigationKey((key) => key + 1), [])
 
   const returnToLogin = useCallback(() => {
     endSession()
-    navigate('/')
-    refresh()
-  }, [refresh])
+    replacePath('/')
+  }, [])
 
   const handleLogout = useCallback(async () => {
     const token = getAccessToken()
@@ -39,9 +39,8 @@ function App() {
 
   const handlePasswordChanged = useCallback(() => {
     clearMustChangePassword()
-    navigate('/dashboard')
-    refresh()
-  }, [refresh])
+    replacePath('/dashboard')
+  }, [])
 
   const changePasswordPage = (
     <ChangePasswordPage onPasswordChanged={handlePasswordChanged} onUnauthorized={returnToLogin} />
@@ -49,7 +48,7 @@ function App() {
 
   if (pathname === '/change-password') {
     if (!session) {
-      navigate('/')
+      replacePath('/')
       return <LoginPage />
     }
 
@@ -58,20 +57,73 @@ function App() {
 
   if (pathname === '/dashboard') {
     if (!session) {
-      navigate('/')
+      replacePath('/')
       return <LoginPage />
     }
 
     if (session.mustChangePassword) {
-      navigate('/change-password')
+      replacePath('/change-password')
       return changePasswordPage
     }
 
     return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
   }
 
+  const customerListRoute = pathname === '/customers'
+  const customerCreateRoute = pathname === '/customers/new'
+  const customerEditMatch = /^\/customers\/(\d+)\/edit$/.exec(pathname)
+  const customerDetailMatch = /^\/customers\/(\d+)$/.exec(pathname)
+
+  if (customerListRoute || customerCreateRoute || customerEditMatch || customerDetailMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageCustomers(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (customerCreateRoute) {
+      return (
+        <CustomerFormPage
+          mode="create"
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (customerEditMatch) {
+      return (
+        <CustomerFormPage
+          mode="edit"
+          id={Number(customerEditMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (customerDetailMatch) {
+      return (
+        <CustomerDetailPage
+          id={Number(customerDetailMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    return <CustomerListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
   if (session) {
-    navigate(session.mustChangePassword ? '/change-password' : '/dashboard')
+    replacePath(session.mustChangePassword ? '/change-password' : '/dashboard')
     if (session.mustChangePassword) {
       return changePasswordPage
     }
@@ -79,7 +131,7 @@ function App() {
   }
 
   if (pathname !== '/') {
-    navigate('/')
+    replacePath('/')
   }
 
   return <LoginPage />

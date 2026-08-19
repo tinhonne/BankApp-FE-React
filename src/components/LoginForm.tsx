@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { login } from '../api/auth'
 import { HttpError } from '../api/http'
 import { setAccessToken, setMustChangePassword } from '../auth/tokenStorage'
+import { navigate } from '../lib/navigate'
 
 type FieldErrors = {
   username?: string
@@ -59,7 +60,7 @@ export default function LoginForm() {
       const result = await login({ username, password }, controller.signal)
       setAccessToken(result.token)
       setMustChangePassword(result.mustChangePassword)
-      window.location.assign(result.mustChangePassword ? '/change-password' : '/dashboard')
+      navigate(result.mustChangePassword ? '/change-password' : '/dashboard')
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return

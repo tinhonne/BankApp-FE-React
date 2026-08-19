@@ -5,12 +5,14 @@ const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
 export class HttpError extends Error {
   status: number
   code?: string
+  body?: unknown
 
-  constructor(message: string, status: number, code?: string) {
+  constructor(message: string, status: number, code?: string, body?: unknown) {
     super(message)
     this.name = 'HttpError'
     this.status = status
     this.code = code
+    this.body = body
   }
 }
 
@@ -71,8 +73,28 @@ export async function request<T>(path: string, options: RequestOptions = {}) {
       errorBody?.message ?? 'The server could not process your request.',
       response.status,
       typeof errorBody?.code === 'string' ? errorBody.code : undefined,
+      errorBody,
     )
   }
 
   return body as T
+}
+
+export type ValidationError = {
+  field: string
+  reason: string
+  params?: Record<string, unknown>
+}
+
+export function validationErrors(error: unknown): ValidationError[] {
+  if (!(error instanceof HttpError) || error.code !== 'INVALID_INPUT') {
+    return []
+  }
+
+  const result = (error.body as { result?: { errors?: ValidationError[] } } | undefined)?.result
+  if (result && Array.isArray(result.errors)) {
+    return result.errors
+  }
+
+  return []
 }

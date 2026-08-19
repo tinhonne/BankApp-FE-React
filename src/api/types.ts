@@ -32,11 +32,47 @@ export type PageResponse<T> = {
   last: boolean
 }
 
+export type CustomerType = 'INDIVIDUAL' | 'CORPORATE'
+
 export type Customer = {
   id: number | null
   name: string | null
-  customerType: 'INDIVIDUAL' | 'CORPORATE' | null
+  birthday: string | null
+  address: string | null
+  identityNo: string | null
+  mobile: string | null
+  customerType: CustomerType | null
   status: number | null
+  version: number | null
+  createDatetime: string | null
+  updateDatetime: string | null
+}
+
+export type CustomerCreateRequest = {
+  name: string
+  birthday: string
+  address: string
+  identityNo: string
+  mobile?: string
+  customerType: CustomerType
+  status: number
+}
+
+export type CustomerUpdateRequest = {
+  name: string
+  birthday: string
+  address: string
+  mobile?: string
+  customerType: CustomerType
+  version: number
+}
+
+export type CustomerSearchFilters = {
+  name?: string
+  identityNo?: string
+  mobile?: string
+  customerType?: CustomerType
+  status?: number
 }
 
 export type Account = {

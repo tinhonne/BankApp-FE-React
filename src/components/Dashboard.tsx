@@ -5,6 +5,8 @@ import { HttpError } from '../api/http'
 import type { Account, Customer, PageResponse, User } from '../api/types'
 import { getUsers } from '../api/users'
 import type { Session } from '../auth/session'
+import { navigate } from '../lib/navigate'
+import PageHeader from './PageHeader'
 
 type PanelState<T> = {
   data: T | null
@@ -53,7 +55,7 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
     async (signal?: AbortSignal) => {
       setCustomers((current) => ({ ...current, error: '', loading: true }))
       try {
-        const data = await getCustomers(signal)
+        const data = await getCustomers(0, 5, {}, signal)
         setCustomers({ data, error: '', loading: false })
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -116,13 +118,7 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
 
   return (
     <main className="dashboard-page">
-      <header className="dashboard-header">
-        <div className="dashboard-brand"><span aria-hidden="true">B</span> Bank App</div>
-        <div className="session-controls">
-          <div><strong>{session.username}</strong><span>{session.roles.join(', ')}</span></div>
-          <button type="button" onClick={onLogout}>Sign out</button>
-        </div>
-      </header>
+      <PageHeader session={session} onLogout={onLogout} />
 
       <div className="dashboard-content">
         <div className="dashboard-intro">
@@ -138,7 +134,13 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
 
         <div className="dashboard-grid">
           {canViewCustomers && (
-            <DataPanel title="Customers" loading={customers.loading} error={customers.error} onRetry={() => void loadCustomers()}>
+            <DataPanel
+              title="Customers"
+              loading={customers.loading}
+              error={customers.error}
+              onRetry={() => void loadCustomers()}
+              headerRight={<button type="button" className="link-btn" onClick={() => navigate('/customers')}>View all</button>}
+            >
               {customers.data && (customers.data.content.length === 0 ? <EmptyState /> : <CustomerTable customers={customers.data.content} />)}
             </DataPanel>
           )}
@@ -158,8 +160,8 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
   )
 }
 
-function DataPanel({ title, loading, error, onRetry, wide = false, children }: { title: string; loading: boolean; error: string; onRetry: () => void; wide?: boolean; children: React.ReactNode }) {
-  return <section className={`data-panel${wide ? ' data-panel-wide' : ''}`}><div className="panel-header"><h2>{title}</h2><span>First 5 records</span></div>{loading && <p className="panel-status" role="status">Loading…</p>}{error && <div className="panel-error" role="alert"><p>{error}</p><button type="button" onClick={onRetry}>Retry</button></div>}{!loading && !error && children}</section>
+function DataPanel({ title, loading, error, onRetry, wide = false, headerRight, children }: { title: string; loading: boolean; error: string; onRetry: () => void; wide?: boolean; headerRight?: React.ReactNode; children: React.ReactNode }) {
+  return <section className={`data-panel${wide ? ' data-panel-wide' : ''}`}><div className="panel-header"><h2>{title}</h2><span>{headerRight ?? 'First 5 records'}</span></div>{loading && <p className="panel-status" role="status">Loading…</p>}{error && <div className="panel-error" role="alert"><p>{error}</p><button type="button" onClick={onRetry}>Retry</button></div>}{!loading && !error && children}</section>
 }
 
 function EmptyState() {
