@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { useCallback, useEffect, useState } from 'react'
 import { getAccounts } from '../api/accounts'
 import { getCustomers } from '../api/customers'
@@ -5,6 +6,7 @@ import { HttpError } from '../api/http'
 import type { Account, Customer, PageResponse, User } from '../api/types'
 import { getUsers } from '../api/users'
 import type { Session } from '../auth/session'
+import { accountStatusBadge, accountStatusLabel, formatMoney } from '../lib/accountStatus'
 import { navigate } from '../lib/navigate'
 import PageHeader from './PageHeader'
 
@@ -71,7 +73,7 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
     async (signal?: AbortSignal) => {
       setAccounts((current) => ({ ...current, error: '', loading: true }))
       try {
-        const data = await getAccounts(signal)
+        const data = await getAccounts(0, 5, signal)
         setAccounts({ data, error: '', loading: false })
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -145,7 +147,13 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
             </DataPanel>
           )}
           {canViewAccounts && (
-            <DataPanel title="Accounts" loading={accounts.loading} error={accounts.error} onRetry={() => void loadAccounts()}>
+            <DataPanel
+              title="Accounts"
+              loading={accounts.loading}
+              error={accounts.error}
+              onRetry={() => void loadAccounts()}
+              headerRight={<button type="button" className="link-btn" onClick={() => navigate('/accounts')}>View all</button>}
+            >
               {accounts.data && (accounts.data.content.length === 0 ? <EmptyState /> : <AccountTable accounts={accounts.data.content} />)}
             </DataPanel>
           )}
@@ -160,7 +168,7 @@ export default function Dashboard({ session, onUnauthorized, onLogout }: Dashboa
   )
 }
 
-function DataPanel({ title, loading, error, onRetry, wide = false, headerRight, children }: { title: string; loading: boolean; error: string; onRetry: () => void; wide?: boolean; headerRight?: React.ReactNode; children: React.ReactNode }) {
+function DataPanel({ title, loading, error, onRetry, wide = false, headerRight, children }: { title: string; loading: boolean; error: string; onRetry: () => void; wide?: boolean; headerRight?: ReactNode; children: ReactNode }) {
   return <section className={`data-panel${wide ? ' data-panel-wide' : ''}`}><div className="panel-header"><h2>{title}</h2><span>{headerRight ?? 'First 5 records'}</span></div>{loading && <p className="panel-status" role="status">Loading…</p>}{error && <div className="panel-error" role="alert"><p>{error}</p><button type="button" onClick={onRetry}>Retry</button></div>}{!loading && !error && children}</section>
 }
 
@@ -173,7 +181,7 @@ function CustomerTable({ customers }: { customers: Customer[] }) {
 }
 
 function AccountTable({ accounts }: { accounts: Account[] }) {
-  return <div className="table-scroll"><table><thead><tr><th>Account</th><th>Customer</th><th>Balance</th><th>Status</th></tr></thead><tbody>{accounts.map((account, index) => <tr key={account.id ?? index}><td>{account.accountNumber ?? 'Unavailable'}</td><td>{account.customerName ?? 'Unavailable'}</td><td>{account.balance === null ? 'Unavailable' : account.balance.toLocaleString()}</td><td>{account.status === 1 ? 'Active' : (account.status ?? 'Unavailable')}</td></tr>)}</tbody></table></div>
+  return <div className="table-scroll"><table><thead><tr><th>Account</th><th>Customer</th><th>Balance</th><th>Status</th></tr></thead><tbody>{accounts.map((account, index) => <tr key={account.id ?? index}><td>{account.accountNumber ?? 'Unavailable'}</td><td>{account.customerName ?? 'Unavailable'}</td><td>{formatMoney(account.balance)}</td><td><span className={`badge ${accountStatusBadge(account.status)}`}>{accountStatusLabel(account.status)}</span></td></tr>)}</tbody></table></div>
 }
 
 function UserTable({ users }: { users: User[] }) {

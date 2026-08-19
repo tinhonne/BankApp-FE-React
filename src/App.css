@@ -556,6 +556,147 @@ td {
   background: #fee2e2;
 }
 
+.badge-frozen {
+  color: #1e3a8a;
+  background: #dbeafe;
+}
+
+.badge-pending {
+  color: #854d0e;
+  background: #fef9c3;
+}
+
+.field-hint {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.accounts-panel {
+  margin-top: 20px;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.clickable-row:hover {
+  background: var(--surface-muted);
+}
+
+.customer-search-select {
+  position: relative;
+  min-height: 48px;
+}
+
+.customer-search-select input {
+  width: 100%;
+  min-height: 48px;
+  padding: 11px 13px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-strong);
+  background: var(--surface);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.customer-search-select input[aria-invalid='true'] {
+  border-color: var(--error);
+}
+
+.customer-search-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(7, 27, 51, 0.14);
+}
+
+.customer-search-results li + li {
+  border-top: 1px solid #f1f5f9;
+}
+
+.customer-search-results li button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-strong);
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customer-search-results li button:hover {
+  background: var(--surface-muted);
+}
+
+.customer-search-results li button span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.search-hint {
+  padding: 12px;
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}
+
+.search-hint-error {
+  color: var(--error);
+}
+
+.selected-customer {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px 8px 13px;
+  border: 1px solid #a7c4dd;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.selected-customer > div {
+  display: grid;
+  gap: 2px;
+}
+
+.selected-customer > div span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.selected-customer button {
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-strong);
+  background: var(--surface);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.selected-customer button:hover:not(:disabled) {
+  border-color: var(--navy-700);
+}
+
 .detail-card {
   padding: 22px;
   border: 1px solid #e2e8f0;

@@ -77,10 +77,19 @@ export type CustomerSearchFilters = {
 
 export type Account = {
   id: number | null
+  customerId: number | null
   customerName: string | null
   accountNumber: string | null
   balance: number | null
   status: number | null
+  createDatetime: string | null
+  updateDatetime: string | null
+}
+
+export type AccountCreateRequest = {
+  accountNumber: string
+  customerId: number
+  balance: number
 }
 
 export type User = {

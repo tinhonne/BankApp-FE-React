@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
+import { getCustomerAccounts } from '../api/accounts'
 import { deleteCustomer, getCustomer, updateCustomerStatus } from '../api/customers'
 import { HttpError } from '../api/http'
-import type { Customer } from '../api/types'
+import type { Account, Customer, PageResponse } from '../api/types'
 import type { Session } from '../auth/session'
+import { accountStatusBadge, accountStatusLabel, formatMoney } from '../lib/accountStatus'
 import { navigate } from '../lib/navigate'
 import PageHeader from './PageHeader'
 
@@ -13,6 +15,14 @@ type State = {
 }
 
 const initialState: State = { data: null, error: '', loading: true }
+
+type AccountsState = {
+  data: PageResponse<Account> | null
+  error: string
+  loading: boolean
+}
+
+const initialAccountsState: AccountsState = { data: null, error: '', loading: true }
 
 function errorMessage(error: unknown) {
   if (error instanceof HttpError) {
@@ -57,6 +67,7 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
   const [state, setState] = useState<State>(initialState)
   const [actionError, setActionError] = useState('')
   const [busy, setBusy] = useState<'status' | 'delete' | null>(null)
+  const [accountsState, setAccountsState] = useState<AccountsState>(initialAccountsState)
 
   const handleError = useCallback(
     (error: unknown) => {
@@ -81,6 +92,20 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
             ? 'Customer not found.'
             : errorMessage(error)
           setState({ data: null, error: message, loading: false })
+        }
+      })
+    return () => controller.abort()
+  }, [handleError, id])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setAccountsState((current) => ({ ...current, error: '', loading: true }))
+    getCustomerAccounts(id, 0, 10, controller.signal)
+      .then((data) => setAccountsState({ data, error: '', loading: false }))
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        if (!handleError(error)) {
+          setAccountsState((current) => ({ ...current, error: errorMessage(error), loading: false }))
         }
       })
     return () => controller.abort()
@@ -224,6 +249,52 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
                 <strong>{formatDateTime(customer.updateDatetime)}</strong>
               </div>
             </div>
+          </section>
+        )}
+
+        {!state.loading && !state.error && accountsState.data && (
+          <section className="data-panel accounts-panel">
+            <div className="panel-header">
+              <h2>Accounts</h2>
+              <span>{accountsState.data.totalElements} result{accountsState.data.totalElements === 1 ? '' : 's'}</span>
+            </div>
+            {accountsState.loading && <p className="panel-status" role="status">Loading…</p>}
+            {accountsState.error && (
+              <div className="panel-error" role="alert">
+                <p>{accountsState.error}</p>
+              </div>
+            )}
+            {!accountsState.loading && !accountsState.error && (
+              accountsState.data.content.length === 0 ? (
+                <p className="panel-status">No accounts found.</p>
+              ) : (
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr><th>Account No</th><th>Balance</th><th>Status</th><th>Created</th></tr>
+                    </thead>
+                    <tbody>
+                      {accountsState.data.content.map((account) => (
+                        <tr
+                          key={account.id}
+                          className="clickable-row"
+                          onClick={() => account.id !== null && navigate(`/accounts/${account.id}`)}
+                        >
+                          <td>{account.accountNumber ?? 'Unavailable'}</td>
+                          <td>{formatMoney(account.balance)}</td>
+                          <td>
+                            <span className={`badge ${accountStatusBadge(account.status)}`}>
+                              {accountStatusLabel(account.status)}
+                            </span>
+                          </td>
+                          <td>{formatDateTime(account.createDatetime)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
           </section>
         )}
       </div>

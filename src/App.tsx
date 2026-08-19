@@ -2,6 +2,9 @@ import { useCallback } from 'react'
 import { logout } from './api/auth'
 import { clearMustChangePassword, getAccessToken } from './auth/tokenStorage'
 import { endSession, getSession, type Session } from './auth/session'
+import AccountDetailPage from './components/AccountDetailPage'
+import AccountFormPage from './components/AccountFormPage'
+import AccountListPage from './components/AccountListPage'
 import ChangePasswordForm from './components/ChangePasswordForm'
 import CustomerDetailPage from './components/CustomerDetailPage'
 import CustomerFormPage from './components/CustomerFormPage'
@@ -13,6 +16,10 @@ import { usePathname } from './lib/usePathname'
 import './App.css'
 
 function canManageCustomers(session: Session | null) {
+  return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
+}
+
+function canManageAccounts(session: Session | null) {
   return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
 }
 
@@ -120,6 +127,45 @@ function App() {
     }
 
     return <CustomerListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  const accountListRoute = pathname === '/accounts'
+  const accountCreateRoute = pathname === '/accounts/new'
+  const accountDetailMatch = /^\/accounts\/(\d+)$/.exec(pathname)
+
+  if (accountListRoute || accountCreateRoute || accountDetailMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageAccounts(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (accountCreateRoute) {
+      return (
+        <AccountFormPage
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (accountDetailMatch) {
+      return (
+        <AccountDetailPage
+          id={Number(accountDetailMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    return <AccountListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
   }
 
   if (session) {
