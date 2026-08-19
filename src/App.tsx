@@ -1,121 +1,317 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useCallback } from 'react'
+import { logout } from './api/auth'
+import { clearMustChangePassword, getAccessToken } from './auth/tokenStorage'
+import { endSession, getSession, type Session } from './auth/session'
+import AccountDetailPage from './components/AccountDetailPage'
+import AccountFormPage from './components/AccountFormPage'
+import AccountListPage from './components/AccountListPage'
+import ChangePasswordForm from './components/ChangePasswordForm'
+import CustomerDetailPage from './components/CustomerDetailPage'
+import CustomerFormPage from './components/CustomerFormPage'
+import CustomerListPage from './components/CustomerListPage'
+import Dashboard from './components/Dashboard'
+import LoginForm from './components/LoginForm'
+import TransactionHistoryPage from './components/TransactionHistoryPage'
+import TransferPage from './components/TransferPage'
+import UserDetailPage from './components/UserDetailPage'
+import UserFormPage from './components/UserFormPage'
+import UserListPage from './components/UserListPage'
+import { replacePath } from './lib/navigate'
+import { usePathname } from './lib/usePathname'
 import './App.css'
 
+function canManageCustomers(session: Session | null) {
+  return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
+}
+
+function canManageAccounts(session: Session | null) {
+  return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
+}
+
+function canManageTransactions(session: Session | null) {
+  return session !== null && (session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER'))
+}
+
+function canManageUsers(session: Session | null) {
+  return session !== null && (session.roles.includes('MANAGER') || session.roles.includes('ADMIN'))
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const pathname = usePathname()
+  const session = getSession()
 
+  const returnToLogin = useCallback(() => {
+    endSession()
+    replacePath('/')
+  }, [])
+
+  const handleLogout = useCallback(async () => {
+    const token = getAccessToken()
+    try {
+      if (token) {
+        await logout(token)
+      }
+    } catch {
+      // Local sign-out must proceed even if the server rejects the token.
+    }
+    returnToLogin()
+  }, [returnToLogin])
+
+  const handlePasswordChanged = useCallback(() => {
+    clearMustChangePassword()
+    replacePath('/dashboard')
+  }, [])
+
+  const changePasswordPage = (
+    <ChangePasswordPage onPasswordChanged={handlePasswordChanged} onUnauthorized={returnToLogin} />
+  )
+
+  if (pathname === '/change-password') {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    return changePasswordPage
+  }
+
+  if (pathname === '/dashboard') {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (session.mustChangePassword) {
+      replacePath('/change-password')
+      return changePasswordPage
+    }
+
+    return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  const customerListRoute = pathname === '/customers'
+  const customerCreateRoute = pathname === '/customers/new'
+  const customerEditMatch = /^\/customers\/(\d+)\/edit$/.exec(pathname)
+  const customerDetailMatch = /^\/customers\/(\d+)$/.exec(pathname)
+
+  if (customerListRoute || customerCreateRoute || customerEditMatch || customerDetailMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageCustomers(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (customerCreateRoute) {
+      return (
+        <CustomerFormPage
+          mode="create"
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (customerEditMatch) {
+      return (
+        <CustomerFormPage
+          mode="edit"
+          id={Number(customerEditMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (customerDetailMatch) {
+      return (
+        <CustomerDetailPage
+          id={Number(customerDetailMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    return <CustomerListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  const accountListRoute = pathname === '/accounts'
+  const accountCreateRoute = pathname === '/accounts/new'
+  const accountDetailMatch = /^\/accounts\/(\d+)$/.exec(pathname)
+
+  if (accountListRoute || accountCreateRoute || accountDetailMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageAccounts(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (accountCreateRoute) {
+      return (
+        <AccountFormPage
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (accountDetailMatch) {
+      return (
+        <AccountDetailPage
+          id={Number(accountDetailMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    return <AccountListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  const transferRoute = pathname === '/transactions/transfer' || pathname === '/transfer'
+  const transactionHistoryMatch = /^\/transactions\/history\/(\d{13})$/.exec(pathname)
+
+  if (transferRoute || transactionHistoryMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageTransactions(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (transferRoute) {
+      return <TransferPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    return (
+      <TransactionHistoryPage
+        accountNumber={transactionHistoryMatch![1]}
+        session={session}
+        onUnauthorized={returnToLogin}
+        onLogout={handleLogout}
+      />
+    )
+  }
+
+  const userListRoute = pathname === '/users'
+  const userCreateRoute = pathname === '/users/new'
+  const userEditMatch = /^\/users\/(\d+)\/edit$/.exec(pathname)
+  const userDetailMatch = /^\/users\/(\d+)$/.exec(pathname)
+
+  if (userListRoute || userCreateRoute || userEditMatch || userDetailMatch) {
+    if (!session) {
+      replacePath('/')
+      return <LoginPage />
+    }
+
+    if (!canManageUsers(session)) {
+      replacePath('/dashboard')
+      return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+    }
+
+    if (userCreateRoute) {
+      return (
+        <UserFormPage
+          mode="create"
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (userEditMatch) {
+      return (
+        <UserFormPage
+          mode="edit"
+          id={Number(userEditMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    if (userDetailMatch) {
+      return (
+        <UserDetailPage
+          id={Number(userDetailMatch[1])}
+          session={session}
+          onUnauthorized={returnToLogin}
+          onLogout={handleLogout}
+        />
+      )
+    }
+
+    return <UserListPage session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  if (session) {
+    replacePath(session.mustChangePassword ? '/change-password' : '/dashboard')
+    if (session.mustChangePassword) {
+      return changePasswordPage
+    }
+    return <Dashboard session={session} onUnauthorized={returnToLogin} onLogout={handleLogout} />
+  }
+
+  if (pathname !== '/') {
+    replacePath('/')
+  }
+
+  return <LoginPage />
+}
+
+function LoginPage() {
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <main className="login-page">
+      <section className="login-panel" aria-labelledby="login-title">
+        <div className="brand-mark" aria-hidden="true">B</div>
+        <div className="login-heading">
+          <p className="eyebrow">Bank App</p>
+          <h1 id="login-title">Welcome back</h1>
+          <p>Sign in to securely access your banking services.</p>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+        <LoginForm />
       </section>
+    </main>
+  )
+}
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+function ChangePasswordPage({
+  onPasswordChanged,
+  onUnauthorized,
+}: {
+  onPasswordChanged: () => void
+  onUnauthorized: () => void
+}) {
+  return (
+    <main className="login-page">
+      <section className="login-panel" aria-labelledby="change-password-title">
+        <div className="brand-mark" aria-hidden="true">B</div>
+        <div className="login-heading">
+          <p className="eyebrow">Bank App</p>
+          <h1 id="change-password-title">Change your password</h1>
+          <p>You must set a new password before continuing.</p>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
+        <ChangePasswordForm onPasswordChanged={onPasswordChanged} onUnauthorized={onUnauthorized} />
       </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
 }
 
