@@ -53,6 +53,38 @@ function formatDateTime(value: string | null) {
   return value.replace('T', ' ')
 }
 
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!navigator.clipboard) return
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      className="copy-btn"
+      onClick={handleCopy}
+      title={copied ? 'Copied to clipboard' : `Copy ${text}`}
+      aria-label={copied ? 'Copied' : `Copy ${text}`}
+    >
+      {copied ? (
+        <span className="copy-btn-success" aria-hidden="true">✓</span>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 type AccountDetailPageProps = {
   id: number
   session: Session
@@ -105,18 +137,15 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
   ) {
     const account = state.data
     if (!account || account.id === null) return
-
-    if (confirmMessage && !window.confirm(confirmMessage)) {
-      return
-    }
+    if (confirmMessage && !window.confirm(confirmMessage)) return
 
     setBusy(type)
     setActionError('')
-
     try {
-      const updated = type === 'approve'
-        ? await approveAccount(account.id)
-        : type === 'reject'
+      const updated =
+        type === 'approve'
+          ? await approveAccount(account.id)
+          : type === 'reject'
           ? await rejectAccount(account.id)
           : type === 'freeze'
             ? await freezeAccount(account.id)
@@ -142,10 +171,20 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
       <div className="dashboard-content">
         <div className="page-titlebar">
           <div>
-            <p className="eyebrow">Account management</p>
+            <div className="breadcrumbs">
+              <button type="button" className="breadcrumb-link" onClick={() => navigate('/accounts')}>
+                Accounts
+              </button>
+              <span className="breadcrumb-separator" aria-hidden="true">/</span>
+              <span className="breadcrumb-current tabular-nums">{account?.accountNumber ?? id}</span>
+            </div>
             <h1>Account details</h1>
           </div>
-          <button type="button" className="btn" onClick={() => navigate('/accounts')}>Back to list</button>
+          <div className="row-actions">
+            <button type="button" className="btn" onClick={() => navigate('/accounts')}>
+              Back to list
+            </button>
+          </div>
         </div>
 
         {actionError && (
@@ -154,7 +193,12 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
           </div>
         )}
 
-        {state.loading && <p className="panel-status" role="status">Loading…</p>}
+        {state.loading && (
+          <div className="panel-status-box" role="status">
+            <div className="loading-spinner" aria-hidden="true" />
+            <p>Loading account details…</p>
+          </div>
+        )}
 
         {state.error && (
           <section className="data-panel">
@@ -167,20 +211,26 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
         {!state.loading && !state.error && account && (
           <section className="detail-card">
             <div className="panel-header">
-              <h2>{account.accountNumber ?? 'Unavailable'}</h2>
+              <div className="account-title-group">
+                <h2 className="account-num tabular-nums">{account.accountNumber ?? 'Unavailable'}</h2>
+                {account.accountNumber && <CopyBtn text={account.accountNumber} />}
+              </div>
               <span className={`badge ${accountStatusBadge(account.status)}`}>
                 {accountStatusLabel(account.status)}
               </span>
             </div>
+
             <div className="detail-grid">
-              <div className="detail-item">
-                <span>Account number</span>
-                <strong>{account.accountNumber ?? '—'}</strong>
+              <div className="detail-item detail-item-highlight">
+                <span>Current Balance</span>
+                <strong className="detail-balance tabular-nums">{formatMoney(account.balance)}</strong>
               </div>
+
               <div className="detail-item">
-                <span>Balance</span>
-                <strong>{formatMoney(account.balance)}</strong>
+                <span>Account Number</span>
+                <strong className="tabular-nums">{account.accountNumber ?? '—'}</strong>
               </div>
+
               <div className="detail-item">
                 <span>Customer</span>
                 <strong>
@@ -190,34 +240,38 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
                       className="link-btn"
                       onClick={() => navigate(`/customers/${account.customerId}`)}
                     >
-                      {account.customerName ?? account.customerId}
+                      {account.customerName ?? `Customer #${account.customerId}`} →
                     </button>
                   ) : (
                     '—'
                   )}
                 </strong>
               </div>
+
               <div className="detail-item">
                 <span>Customer ID</span>
-                <strong>{account.customerId ?? '—'}</strong>
+                <strong className="tabular-nums">#{account.customerId ?? '—'}</strong>
               </div>
+
               <div className="detail-item">
-                <span>Created</span>
-                <strong>{formatDateTime(account.createDatetime)}</strong>
+                <span>Created date</span>
+                <strong className="tabular-nums">{formatDateTime(account.createDatetime)}</strong>
               </div>
+
               <div className="detail-item">
-                <span>Updated</span>
-                <strong>{formatDateTime(account.updateDatetime)}</strong>
+                <span>Last updated</span>
+                <strong className="tabular-nums">{formatDateTime(account.updateDatetime)}</strong>
               </div>
             </div>
+
             <div className="form-actions">
               <button
                 type="button"
                 className="btn btn-primary"
                 disabled={busy !== null}
-                onClick={() => navigate('/transactions/transfer')}
+                onClick={() => navigate('/transfer')}
               >
-                Transfer
+                Transfer funds
               </button>
               <button
                 type="button"
@@ -225,7 +279,7 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
                 disabled={busy !== null}
                 onClick={() => account.accountNumber && navigate(`/transactions/history/${account.accountNumber}`)}
               >
-                Transactions
+                View transactions
               </button>
               {canApprove && account.status === 3 && (
                 <button
@@ -234,7 +288,7 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
                   disabled={busy !== null}
                   onClick={() => void runTransition('approve')}
                 >
-                  Approve
+                  Approve account
                 </button>
               )}
               {canReject && account.status === 3 && (
@@ -284,7 +338,7 @@ export default function AccountDetailPage({ id, session, onUnauthorized, onLogou
                     )
                   }
                 >
-                  Close
+                  Close account
                 </button>
               )}
             </div>

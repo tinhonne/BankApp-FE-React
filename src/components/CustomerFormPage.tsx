@@ -56,13 +56,13 @@ function validate(form: CustomerForm, mode: 'create' | 'edit') {
   const errors: FieldErrors = {}
 
   if (!form.name) {
-    errors.name = 'Name is required.'
+    errors.name = 'Full legal name is required.'
   } else if (form.name.length > 100) {
     errors.name = 'Name must be 100 characters or fewer.'
   }
 
   if (!form.birthday) {
-    errors.birthday = 'Birthday is required.'
+    errors.birthday = 'Date of birth is required.'
   } else {
     const birth = new Date(`${form.birthday}T00:00:00`)
     const now = new Date()
@@ -71,13 +71,13 @@ function validate(form: CustomerForm, mode: 'create' | 'edit') {
     } else {
       const cutoff = new Date(now.getFullYear() - 18, now.getMonth(), now.getDate())
       if (birth > cutoff) {
-        errors.birthday = 'Customer must be at least 18 years old.'
+        errors.birthday = 'Customer must be at least 18 years of age.'
       }
     }
   }
 
   if (!form.address) {
-    errors.address = 'Address is required.'
+    errors.address = 'Registered address is required.'
   } else if (form.address.length > 255) {
     errors.address = 'Address must be 255 characters or fewer.'
   }
@@ -86,12 +86,12 @@ function validate(form: CustomerForm, mode: 'create' | 'edit') {
     if (!form.identityNo) {
       errors.identityNo = 'Identity number is required.'
     } else if (!/^\d{10}$/.test(form.identityNo)) {
-      errors.identityNo = 'Identity number must be 10 digits.'
+      errors.identityNo = 'Identity number must be exactly 10 digits.'
     }
   }
 
   if (form.mobile && !/^\d{9,10}$/.test(form.mobile)) {
-    errors.mobile = 'Mobile must be 9–10 digits.'
+    errors.mobile = 'Mobile number must be 9–10 digits.'
   }
 
   return errors
@@ -118,12 +118,12 @@ type CustomerFormPageProps = {
 
 export default function CustomerFormPage({ mode, id, session, onUnauthorized, onLogout }: CustomerFormPageProps) {
   const [form, setForm] = useState<CustomerForm>(EMPTY_FORM)
+  const [version, setVersion] = useState(0)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(mode === 'edit')
   const [loadError, setLoadError] = useState('')
-  const [version, setVersion] = useState<number | null>(null)
   const abortController = useRef<AbortController | null>(null)
 
   useEffect(() => () => abortController.current?.abort(), [])
@@ -137,16 +137,16 @@ export default function CustomerFormPage({ mode, id, session, onUnauthorized, on
     setIsLoading(true)
     setLoadError('')
     getCustomer(id, controller.signal)
-      .then((data) => {
+      .then((customer) => {
+        setVersion(customer.version ?? 0)
         setForm({
-          name: data.name ?? '',
-          birthday: data.birthday ?? '',
-          address: data.address ?? '',
-          identityNo: data.identityNo ?? '',
-          mobile: data.mobile ?? '',
-          customerType: data.customerType ?? 'INDIVIDUAL',
+          name: customer.name ?? '',
+          birthday: customer.birthday ?? '',
+          address: customer.address ?? '',
+          identityNo: customer.identityNo ?? '',
+          mobile: customer.mobile ?? '',
+          customerType: customer.customerType ?? 'INDIVIDUAL',
         })
-        setVersion(data.version)
       })
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
@@ -189,43 +189,40 @@ export default function CustomerFormPage({ mode, id, session, onUnauthorized, on
     setIsSubmitting(true)
 
     try {
-      if (mode === 'edit') {
-        if (id === undefined || version === null) {
-          throw new Error('Customer version is unavailable.')
-        }
-        const updated = await updateCustomer(
-          id,
+      if (mode === 'create') {
+        await createCustomer(
           {
-            name: form.name,
+            name: form.name.trim(),
             birthday: form.birthday,
-            address: form.address,
-            mobile: form.mobile || undefined,
-            customerType: form.customerType,
-            version,
-          },
-          controller.signal,
-        )
-        navigate(`/customers/${updated.id}`)
-      } else {
-        const created = await createCustomer(
-          {
-            name: form.name,
-            birthday: form.birthday,
-            address: form.address,
-            identityNo: form.identityNo,
-            mobile: form.mobile || undefined,
+            address: form.address.trim(),
+            identityNo: form.identityNo.trim(),
+            mobile: form.mobile.trim() || undefined,
             customerType: form.customerType,
             status: 1,
           },
           controller.signal,
         )
-        navigate(`/customers/${created.id}`)
+        navigate('/customers')
+      } else {
+        if (id === undefined) return
+        await updateCustomer(
+          id,
+          {
+            name: form.name.trim(),
+            birthday: form.birthday,
+            address: form.address.trim(),
+            mobile: form.mobile.trim() || undefined,
+            customerType: form.customerType,
+            version,
+          },
+          controller.signal,
+        )
+        navigate(`/customers/${id}`)
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         return
       }
-
       if (error instanceof HttpError) {
         if (error.status === 401) {
           onUnauthorized()
@@ -239,13 +236,13 @@ export default function CustomerFormPage({ mode, id, session, onUnauthorized, on
           } else {
             setFormError(error.message)
           }
-        } else if (error.code === 'CUSTOMER_EXISTED') {
+        } else if (error.code === 'IDENTITY_NUMBER_EXISTED') {
           setFieldErrors((current) => ({
             ...current,
             identityNo: 'A customer with this identity number already exists.',
           }))
-        } else if (error.code === 'CONCURRENT_MODIFICATION') {
-          setFormError('This customer was modified by another request. Reload the page and try again.')
+        } else if (error.code === 'CUSTOMER_NOT_FOUND') {
+          setFormError('The customer was not found.')
         } else {
           setFormError(error.message)
         }
@@ -264,13 +261,26 @@ export default function CustomerFormPage({ mode, id, session, onUnauthorized, on
       <div className="dashboard-content">
         <div className="page-titlebar">
           <div>
-            <p className="eyebrow">Customer management</p>
-            <h1>{mode === 'create' ? 'New customer' : 'Edit customer'}</h1>
+            <div className="breadcrumbs">
+              <button type="button" className="breadcrumb-link" onClick={() => navigate('/customers')}>
+                Customers
+              </button>
+              <span className="breadcrumb-separator" aria-hidden="true">/</span>
+              <span className="breadcrumb-current">{mode === 'create' ? 'New Customer' : `Edit Customer #${id}`}</span>
+            </div>
+            <h1>{mode === 'create' ? 'Register New Customer' : 'Edit Customer Profile'}</h1>
           </div>
-          <button type="button" className="btn" onClick={() => navigate('/customers')}>Back to list</button>
+          <button type="button" className="btn" onClick={() => navigate('/customers')}>
+            Back to customers
+          </button>
         </div>
 
-        {isLoading && <p className="panel-status" role="status">Loading…</p>}
+        {isLoading && (
+          <div className="panel-status-box" role="status">
+            <div className="loading-spinner" aria-hidden="true" />
+            <p>Loading customer profile…</p>
+          </div>
+        )}
 
         {loadError && (
           <section className="data-panel">
@@ -281,100 +291,164 @@ export default function CustomerFormPage({ mode, id, session, onUnauthorized, on
         )}
 
         {!isLoading && !loadError && (
-          <form className="detail-card customer-form" noValidate onSubmit={handleSubmit}>
-            <div className="form-grid">
-              <div className="form-field">
-                <label htmlFor="customer-name">Name</label>
-                <input
-                  id="customer-name"
-                  type="text"
-                  maxLength={100}
-                  value={form.name}
-                  disabled={isSubmitting}
-                  aria-invalid={Boolean(fieldErrors.name)}
-                  onChange={(event) => updateField('name', event.target.value)}
-                />
-                {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+          <form className="enterprise-form-card" noValidate onSubmit={handleSubmit}>
+            <div className="form-section">
+              <div className="form-section-header">
+                <h3>1. Customer Identity & Classification</h3>
+                <p>Legal name, classification, and statutory identification details.</p>
               </div>
-              <div className="form-field">
-                <label htmlFor="customer-birthday">Birthday</label>
-                <input
-                  id="customer-birthday"
-                  type="date"
-                  value={form.birthday}
-                  disabled={isSubmitting}
-                  aria-invalid={Boolean(fieldErrors.birthday)}
-                  onChange={(event) => updateField('birthday', event.target.value)}
-                />
-                {fieldErrors.birthday && <span className="field-error">{fieldErrors.birthday}</span>}
-              </div>
-              <div className="form-field">
-                <label htmlFor="customer-type">Customer type</label>
-                <select
-                  id="customer-type"
-                  value={form.customerType}
-                  disabled={isSubmitting}
-                  aria-invalid={Boolean(fieldErrors.customerType)}
-                  onChange={(event) => updateField('customerType', event.target.value)}
-                >
-                  <option value="INDIVIDUAL">Individual</option>
-                  <option value="CORPORATE">Corporate</option>
-                </select>
-              </div>
-              {mode === 'create' && (
+
+              <div className="form-grid">
                 <div className="form-field">
-                  <label htmlFor="customer-identity-no">Identity number</label>
+                  <div className="label-row">
+                    <label htmlFor="customer-name">Full Legal Name</label>
+                    <span className="char-counter">{form.name.length}/100</span>
+                  </div>
                   <input
-                    id="customer-identity-no"
+                    id="customer-name"
+                    type="text"
+                    maxLength={100}
+                    placeholder="e.g. Acme Corporation or Jane Smith"
+                    value={form.name}
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(fieldErrors.name)}
+                    onChange={(event) => updateField('name', event.target.value)}
+                  />
+                  {fieldErrors.name && <span className="field-error">{fieldErrors.name}</span>}
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="customer-type">Customer Classification</label>
+                  <div className="segmented-control" role="radiogroup" aria-label="Customer Classification">
+                    <button
+                      type="button"
+                      className={`segmented-btn ${form.customerType === 'INDIVIDUAL' ? 'segmented-btn-active' : ''}`}
+                      onClick={() => updateField('customerType', 'INDIVIDUAL')}
+                      disabled={isSubmitting}
+                    >
+                      Individual
+                    </button>
+                    <button
+                      type="button"
+                      className={`segmented-btn ${form.customerType === 'CORPORATE' ? 'segmented-btn-active' : ''}`}
+                      onClick={() => updateField('customerType', 'CORPORATE')}
+                      disabled={isSubmitting}
+                    >
+                      Corporate
+                    </button>
+                  </div>
+                  <span className="field-hint">Classification defines compliance and reporting rules.</span>
+                </div>
+
+                <div className="form-field">
+                  <label htmlFor="customer-birthday">Date of Birth / Inception</label>
+                  <input
+                    id="customer-birthday"
+                    type="date"
+                    value={form.birthday}
+                    disabled={isSubmitting}
+                    aria-invalid={Boolean(fieldErrors.birthday)}
+                    onChange={(event) => updateField('birthday', event.target.value)}
+                  />
+                  <span className="field-hint">Customer must be at least 18 years old.</span>
+                  {fieldErrors.birthday && <span className="field-error">{fieldErrors.birthday}</span>}
+                </div>
+
+                {mode === 'create' ? (
+                  <div className="form-field">
+                    <div className="label-row">
+                      <label htmlFor="customer-identity-no">Identity Number (CCCD / Passport)</label>
+                      <span className={`char-counter ${form.identityNo.length === 10 ? 'counter-complete' : ''}`}>
+                        {form.identityNo.length}/10 digits
+                      </span>
+                    </div>
+                    <input
+                      id="customer-identity-no"
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder="Exactly 10 digits"
+                      value={form.identityNo}
+                      disabled={isSubmitting}
+                      aria-invalid={Boolean(fieldErrors.identityNo)}
+                      onChange={(event) => {
+                        const cleaned = event.target.value.replace(/\D/g, '')
+                        updateField('identityNo', cleaned)
+                      }}
+                    />
+                    <span className="field-hint">Unique 10-digit government-issued citizen identifier.</span>
+                    {fieldErrors.identityNo && <span className="field-error">{fieldErrors.identityNo}</span>}
+                  </div>
+                ) : (
+                  <div className="form-field">
+                    <label>Identity Number (Immutable)</label>
+                    <input type="text" value={form.identityNo} disabled readOnly className="tabular-nums" />
+                    <span className="field-hint">Identity numbers cannot be altered after registration.</span>
+                  </div>
+                )}
+
+                <div className="form-field">
+                  <label htmlFor="customer-mobile">Mobile Phone (Optional)</label>
+                  <input
+                    id="customer-mobile"
                     type="text"
                     inputMode="numeric"
                     maxLength={10}
-                    value={form.identityNo}
+                    placeholder="e.g. 0912345678"
+                    value={form.mobile}
                     disabled={isSubmitting}
-                    aria-invalid={Boolean(fieldErrors.identityNo)}
-                    onChange={(event) => updateField('identityNo', event.target.value)}
+                    aria-invalid={Boolean(fieldErrors.mobile)}
+                    onChange={(event) => {
+                      const cleaned = event.target.value.replace(/\D/g, '')
+                      updateField('mobile', cleaned)
+                    }}
                   />
-                  {fieldErrors.identityNo && <span className="field-error">{fieldErrors.identityNo}</span>}
+                  <span className="field-hint">9 to 10 numeric digits. Used for operational notices.</span>
+                  {fieldErrors.mobile && <span className="field-error">{fieldErrors.mobile}</span>}
                 </div>
-              )}
-              <div className="form-field">
-                <label htmlFor="customer-mobile">Mobile (optional)</label>
-                <input
-                  id="customer-mobile"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={form.mobile}
-                  disabled={isSubmitting}
-                  aria-invalid={Boolean(fieldErrors.mobile)}
-                  onChange={(event) => updateField('mobile', event.target.value)}
-                />
-                {fieldErrors.mobile && <span className="field-error">{fieldErrors.mobile}</span>}
               </div>
+            </div>
+
+            <div className="form-section">
+              <div className="form-section-header">
+                <h3>2. Registered Address</h3>
+                <p>Official residential or company incorporation address for KYC records.</p>
+              </div>
+
               <div className="form-field form-field-full">
-                <label htmlFor="customer-address">Address</label>
+                <div className="label-row">
+                  <label htmlFor="customer-address">Address Line</label>
+                  <span className="char-counter">{form.address.length}/255</span>
+                </div>
                 <input
                   id="customer-address"
                   type="text"
                   maxLength={255}
+                  placeholder="Street address, city, province/state, postal code"
                   value={form.address}
                   disabled={isSubmitting}
                   aria-invalid={Boolean(fieldErrors.address)}
                   onChange={(event) => updateField('address', event.target.value)}
                 />
+                <span className="field-hint">Must match official registration or proof-of-address documents.</span>
                 {fieldErrors.address && <span className="field-error">{fieldErrors.address}</span>}
               </div>
             </div>
 
             {formError && (
               <div className="form-error" role="alert">
-                {formError}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                <span>{formError}</span>
               </div>
             )}
 
             <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={isSubmitting} aria-busy={isSubmitting}>
-                {isSubmitting ? 'Saving…' : mode === 'create' ? 'Create customer' : 'Save changes'}
+                {isSubmitting ? 'Saving customer…' : mode === 'create' ? 'Register customer' : 'Save profile'}
               </button>
               <button type="button" className="btn" disabled={isSubmitting} onClick={() => navigate('/customers')}>
                 Cancel

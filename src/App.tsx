@@ -279,15 +279,89 @@ function App() {
 
 function LoginPage() {
   return (
-    <main className="login-page">
-      <section className="login-panel" aria-labelledby="login-title">
-        <div className="brand-mark" aria-hidden="true">B</div>
-        <div className="login-heading">
-          <p className="eyebrow">Bank App</p>
-          <h1 id="login-title">Welcome back</h1>
-          <p>Sign in to securely access your banking services.</p>
+    <main className="login-split-page">
+      <section className="login-showcase-panel" aria-label="Portal Overview">
+        <div className="showcase-content">
+          <div className="showcase-brand">
+            <div className="brand-mark-showcase" aria-hidden="true">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v4M12 14v4M16 14v4" />
+              </svg>
+            </div>
+            <div>
+              <span className="showcase-portal-title">Bank Portal</span>
+              <span className="showcase-portal-badge">Enterprise Edition</span>
+            </div>
+          </div>
+
+          <div className="showcase-headline">
+            <h2>Secure Financial Operations & Core Ledger Management</h2>
+            <p>
+              Unified banking portal for high-integrity transfers, account administration, and customer lifecycle governance.
+            </p>
+          </div>
+
+          <div className="trust-badges-list">
+            <div className="trust-badge-item">
+              <div className="trust-badge-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              </div>
+              <div>
+                <strong>HS512 Encrypted Sessions</strong>
+                <span>Cryptographically verified credentials with time-bound JWT tokens</span>
+              </div>
+            </div>
+
+            <div className="trust-badge-item">
+              <div className="trust-badge-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div>
+                <strong>Role-Based Access Control</strong>
+                <span>Strict operational separation between Employee, Manager, and Admin</span>
+              </div>
+            </div>
+
+            <div className="trust-badge-item">
+              <div className="trust-badge-icon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14 2 14 8 20 8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10 9 9 9 8 9" />
+                </svg>
+              </div>
+              <div>
+                <strong>Audited Transaction Ledger</strong>
+                <span>Pessimistic account locking guaranteeing real-time balance integrity</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="showcase-footer">
+            <span>© 2026 Core Financial Banking Portal. All rights reserved.</span>
+          </div>
         </div>
-        <LoginForm />
+      </section>
+
+      <section className="login-auth-panel" aria-labelledby="login-title">
+        <div className="login-panel-inner">
+          <div className="auth-header">
+            <div className="security-notice-pill">
+              <span className="status-dot-green" aria-hidden="true" />
+              <span>Authorized Personnel Only</span>
+            </div>
+            <h1 id="login-title">Sign in to Portal</h1>
+            <p>Enter your assigned system credentials to access banking services.</p>
+          </div>
+          <LoginForm />
+        </div>
       </section>
     </main>
   )
@@ -303,11 +377,15 @@ function ChangePasswordPage({
   return (
     <main className="login-page">
       <section className="login-panel" aria-labelledby="change-password-title">
-        <div className="brand-mark" aria-hidden="true">B</div>
+        <div className="brand-mark" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v4M12 14v4M16 14v4" />
+          </svg>
+        </div>
         <div className="login-heading">
-          <p className="eyebrow">Bank App</p>
+          <p className="eyebrow">Security Requirement</p>
           <h1 id="change-password-title">Change your password</h1>
-          <p>You must set a new password before continuing.</p>
+          <p>You must set a secure new password before accessing the portal.</p>
         </div>
         <ChangePasswordForm onPasswordChanged={onPasswordChanged} onUnauthorized={onUnauthorized} />
       </section>

@@ -85,6 +85,38 @@ type AccountActionsProps = {
   onClose: (account: Account) => void
 }
 
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!navigator.clipboard) return
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      className="copy-btn"
+      onClick={handleCopy}
+      title={copied ? 'Copied' : `Copy ${text}`}
+      aria-label={copied ? 'Copied' : `Copy ${text}`}
+    >
+      {copied ? (
+        <span className="copy-btn-success" aria-hidden="true">✓</span>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 function AccountRow({
   account,
   busyId,
@@ -103,15 +135,20 @@ function AccountRow({
 
   return (
     <tr key={account.id}>
-      <td>{account.accountNumber ?? 'Unavailable'}</td>
+      <td>
+        <span className="account-cell tabular-nums">
+          {account.accountNumber ?? 'Unavailable'}
+          {account.accountNumber && <CopyBtn text={account.accountNumber} />}
+        </span>
+      </td>
       <td>{account.customerName ?? '—'}</td>
-      <td>{formatMoney(account.balance)}</td>
+      <td className="td-right tabular-nums font-semibold">{formatMoney(account.balance)}</td>
       <td>
         <span className={`badge ${accountStatusBadge(account.status)}`}>
           {accountStatusLabel(account.status)}
         </span>
       </td>
-      <td>{(account.createDatetime ?? '—').replace('T', ' ')}</td>
+      <td className="tabular-nums">{(account.createDatetime ?? '—').replace('T', ' ')}</td>
       <td>
         <div className="row-actions">
           <button
@@ -121,8 +158,18 @@ function AccountRow({
           >
             View
           </button>
+          {account.accountNumber && (
+            <button
+              type="button"
+              className="btn"
+              title="View transaction history"
+              onClick={() => navigate(`/transactions/history/${account.accountNumber}`)}
+            >
+              Txns
+            </button>
+          )}
           {canApprove && account.status === 3 && (
-            <button type="button" className="btn" disabled={isBusy} onClick={() => onApprove(account)}>
+            <button type="button" className="btn btn-primary" disabled={isBusy} onClick={() => onApprove(account)}>
               Approve
             </button>
           )}
@@ -413,7 +460,7 @@ export default function AccountListPage({ session, onUnauthorized, onLogout }: A
               <div className="table-scroll">
                 <table>
                   <thead>
-                    <tr><th>Account No</th><th>Customer</th><th>Balance</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                    <tr><th>Account No</th><th>Customer</th><th className="th-right">Balance</th><th>Status</th><th>Created</th><th>Actions</th></tr>
                   </thead>
                   <tbody>
                     <AccountRow account={lookup.account} {...actionsProps} />
@@ -443,7 +490,7 @@ export default function AccountListPage({ session, onUnauthorized, onLogout }: A
                   <div className="table-scroll">
                     <table>
                       <thead>
-                        <tr><th>Account No</th><th>Customer</th><th>Balance</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                        <tr><th>Account No</th><th>Customer</th><th className="th-right">Balance</th><th>Status</th><th>Created</th><th>Actions</th></tr>
                       </thead>
                       <tbody>
                         {pageState.data.content.map((account) => (
