@@ -56,6 +56,38 @@ function formatDateTime(value: string | null) {
   return value.replace('T', ' ')
 }
 
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!navigator.clipboard) return
+    void navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    })
+  }
+
+  return (
+    <button
+      type="button"
+      className="copy-btn"
+      onClick={handleCopy}
+      title={copied ? 'Copied to clipboard' : `Copy ${text}`}
+      aria-label={copied ? 'Copied' : `Copy ${text}`}
+    >
+      {copied ? (
+        <span className="copy-btn-success" aria-hidden="true">✓</span>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 type CustomerDetailPageProps = {
   id: number
   session: Session
@@ -100,12 +132,12 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
   useEffect(() => {
     const controller = new AbortController()
     setAccountsState((current) => ({ ...current, error: '', loading: true }))
-    getCustomerAccounts(id, 0, 10, controller.signal)
+    getCustomerAccounts(id, 0, 50, controller.signal)
       .then((data) => setAccountsState({ data, error: '', loading: false }))
       .catch((error) => {
         if (error instanceof DOMException && error.name === 'AbortError') return
         if (!handleError(error)) {
-          setAccountsState((current) => ({ ...current, error: errorMessage(error), loading: false }))
+          setAccountsState({ data: null, error: errorMessage(error), loading: false })
         }
       })
     return () => controller.abort()
@@ -116,6 +148,13 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
     if (!customer || customer.id === null) return
 
     const nextStatus = customer.status === 1 ? 0 : 1
+    const confirmPrompt =
+      nextStatus === 0
+        ? `Deactivate customer "${customer.name ?? customer.id}"? They will not be able to perform account operations.`
+        : `Activate customer "${customer.name ?? customer.id}"?`
+
+    if (!window.confirm(confirmPrompt)) return
+
     setBusy('status')
     setActionError('')
 
@@ -158,6 +197,7 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
   }
 
   const customer = state.data
+  const canManageAccounts = session.roles.includes('EMPLOYEE') || session.roles.includes('MANAGER')
 
   return (
     <main className="dashboard-page">
@@ -165,25 +205,54 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
       <div className="dashboard-content">
         <div className="page-titlebar">
           <div>
-            <p className="eyebrow">Customer management</p>
+            <div className="breadcrumbs">
+              <button type="button" className="breadcrumb-link" onClick={() => navigate('/customers')}>
+                Customers
+              </button>
+              <span className="breadcrumb-separator" aria-hidden="true">/</span>
+              <span className="breadcrumb-current">{customer?.name ?? id}</span>
+            </div>
             <h1>Customer details</h1>
           </div>
           <div className="row-actions">
-            <button type="button" className="btn" onClick={() => navigate('/customers')}>Back to list</button>
+            <button type="button" className="btn" onClick={() => navigate('/customers')}>
+              Back to list
+            </button>
             {customer && (
               <>
+                {canManageAccounts && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={busy !== null || customer.status !== 1}
+                    title={customer.status !== 1 ? 'Cannot open account for inactive customer' : 'Open a new bank account for this customer'}
+                    onClick={() => navigate(`/accounts/new?customerId=${customer.id}`)}
+                  >
+                    Open account
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn"
                   disabled={busy !== null}
                   onClick={() => navigate(`/customers/${customer.id}/edit`)}
                 >
-                  Edit
+                  Edit profile
                 </button>
-                <button type="button" className="btn" disabled={busy !== null} onClick={() => void handleToggleStatus()}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={busy !== null}
+                  onClick={() => void handleToggleStatus()}
+                >
                   {customer.status === 1 ? 'Deactivate' : 'Activate'}
                 </button>
-                <button type="button" className="btn btn-danger" disabled={busy !== null} onClick={() => void handleDelete()}>
+                <button
+                  type="button"
+                  className="btn btn-danger"
+                  disabled={busy !== null}
+                  onClick={() => void handleDelete()}
+                >
                   Delete
                 </button>
               </>
@@ -197,7 +266,12 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
           </div>
         )}
 
-        {state.loading && <p className="panel-status" role="status">Loading…</p>}
+        {state.loading && (
+          <div className="panel-status-box" role="status">
+            <div className="loading-spinner" aria-hidden="true" />
+            <p>Loading customer profile…</p>
+          </div>
+        )}
 
         {state.error && (
           <section className="data-panel">
@@ -217,36 +291,39 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
             </div>
             <div className="detail-grid">
               <div className="detail-item">
-                <span>Customer type</span>
+                <span>Customer Type</span>
                 <strong>{customer.customerType === 'CORPORATE' ? 'Corporate' : 'Individual'}</strong>
               </div>
               <div className="detail-item">
                 <span>Birthday</span>
-                <strong>{customer.birthday ?? '—'}</strong>
+                <strong className="tabular-nums">{customer.birthday ?? '—'}</strong>
               </div>
               <div className="detail-item">
-                <span>Identity number</span>
-                <strong>{customer.identityNo ?? '—'}</strong>
+                <span>Identity Number</span>
+                <strong className="account-cell tabular-nums">
+                  {customer.identityNo ?? '—'}
+                  {customer.identityNo && <CopyBtn text={customer.identityNo} />}
+                </strong>
               </div>
               <div className="detail-item">
                 <span>Mobile</span>
-                <strong>{customer.mobile ?? '—'}</strong>
+                <strong className="tabular-nums">{customer.mobile ?? '—'}</strong>
               </div>
-              <div className="detail-item">
-                <span>Address</span>
+              <div className="detail-item detail-item-full">
+                <span>Registered Address</span>
                 <strong>{customer.address ?? '—'}</strong>
               </div>
               <div className="detail-item">
-                <span>Version</span>
-                <strong>{customer.version ?? '—'}</strong>
+                <span>Record Version</span>
+                <strong className="tabular-nums">v{customer.version ?? '—'}</strong>
               </div>
               <div className="detail-item">
-                <span>Created</span>
-                <strong>{formatDateTime(customer.createDatetime)}</strong>
+                <span>Created Date</span>
+                <strong className="tabular-nums">{formatDateTime(customer.createDatetime)}</strong>
               </div>
               <div className="detail-item">
-                <span>Updated</span>
-                <strong>{formatDateTime(customer.updateDatetime)}</strong>
+                <span>Last Updated</span>
+                <strong className="tabular-nums">{formatDateTime(customer.updateDatetime)}</strong>
               </div>
             </div>
           </section>
@@ -255,10 +332,24 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
         {!state.loading && !state.error && accountsState.data && (
           <section className="data-panel accounts-panel">
             <div className="panel-header">
-              <h2>Accounts</h2>
-              <span>{accountsState.data.totalElements} result{accountsState.data.totalElements === 1 ? '' : 's'}</span>
+              <div>
+                <h2>Associated Accounts</h2>
+                <span className="panel-subtitle">Active accounts owned by this customer</span>
+              </div>
+              <div className="row-actions" style={{ alignItems: 'center' }}>
+                <span>{accountsState.data.totalElements} result{accountsState.data.totalElements === 1 ? '' : 's'}</span>
+                {canManageAccounts && customer && customer.status === 1 && (
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => navigate(`/accounts/new?customerId=${customer.id}`)}
+                  >
+                    + Open account
+                  </button>
+                )}
+              </div>
             </div>
-            {accountsState.loading && <p className="panel-status" role="status">Loading…</p>}
+            {accountsState.loading && <p className="panel-status" role="status">Loading accounts…</p>}
             {accountsState.error && (
               <div className="panel-error" role="alert">
                 <p>{accountsState.error}</p>
@@ -266,12 +357,28 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
             )}
             {!accountsState.loading && !accountsState.error && (
               accountsState.data.content.length === 0 ? (
-                <p className="panel-status">No accounts found.</p>
+                <div style={{ textAlign: 'center', padding: '28px 16px' }}>
+                  <p className="panel-status" style={{ margin: '0 0 16px 0' }}>No active accounts associated with this customer.</p>
+                  {canManageAccounts && customer && customer.status === 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={() => navigate(`/accounts/new?customerId=${customer.id}`)}
+                    >
+                      Open an account
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div className="table-scroll">
                   <table>
                     <thead>
-                      <tr><th>Account No</th><th>Balance</th><th>Status</th><th>Created</th></tr>
+                      <tr>
+                        <th>Account No</th>
+                        <th className="th-right">Balance</th>
+                        <th>Status</th>
+                        <th>Created Date</th>
+                      </tr>
                     </thead>
                     <tbody>
                       {accountsState.data.content.map((account) => (
@@ -280,14 +387,16 @@ export default function CustomerDetailPage({ id, session, onUnauthorized, onLogo
                           className="clickable-row"
                           onClick={() => account.id !== null && navigate(`/accounts/${account.id}`)}
                         >
-                          <td>{account.accountNumber ?? 'Unavailable'}</td>
-                          <td>{formatMoney(account.balance)}</td>
+                          <td>
+                            <span className="account-num tabular-nums">{account.accountNumber ?? 'Unavailable'}</span>
+                          </td>
+                          <td className="td-right tabular-nums font-semibold">{formatMoney(account.balance)}</td>
                           <td>
                             <span className={`badge ${accountStatusBadge(account.status)}`}>
                               {accountStatusLabel(account.status)}
                             </span>
                           </td>
-                          <td>{formatDateTime(account.createDatetime)}</td>
+                          <td className="tabular-nums">{formatDateTime(account.createDatetime)}</td>
                         </tr>
                       ))}
                     </tbody>
